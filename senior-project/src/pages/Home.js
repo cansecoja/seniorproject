@@ -1,137 +1,229 @@
-import React from 'react';
-import Avatar from '@material-ui/core/Avatar';
-import Button from '@material-ui/core/Button';
-import CssBaseline from '@material-ui/core/CssBaseline';
-import TextField from '@material-ui/core/TextField';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Checkbox from '@material-ui/core/Checkbox';
-//import Link from '@material-ui/core/Link';
-import Paper from '@material-ui/core/Paper';
-import Box from '@material-ui/core/Box';
-import Grid from '@material-ui/core/Grid';
-import LockOutlinedIcon from '@material-ui/icons/LockOutlined';
-import Typography from '@material-ui/core/Typography';
-import { makeStyles } from '@material-ui/core/styles';
+import React, { useState, useEffect } from "react";
+import "../App.css";
+import Post from "../Post";
+import ImageUpload from "../ImageUpload";
+import FlipMove from "react-flip-move";
+import InstagramEmbed from "react-instagram-embed";
+import { Link, Router } from "react-router-dom";
+import { db, auth } from "../firebase";
+import { Button, Avatar, makeStyles, Modal, Input } from "@material-ui/core";
 
-import { Link } from "react-router-dom";
 
-function Copyright() {
-  return (
-    <Typography variant="body2" color="textSecondary" align="center">
-      {'Copyright © '}
-      <Link color="inherit" href="https://material-ui.com/">
-        Your Website
-      </Link>{' '}
-      {new Date().getFullYear()}
-      {'.'}
-    </Typography>
-  );
+function getModalStyle() {
+    const top = 50;
+    const left = 50;
+
+    return {
+        height: "300px",
+        top: `${top}%`,
+        left: `${left}%`,
+        transform: `translate(-${top}%, -${left}%)`,
+};
 }
 
 const useStyles = makeStyles((theme) => ({
-  root: {
-    height: '100vh',
-  },
-  image: {
-    backgroundImage: 'url(https://source.unsplash.com/random)',
-    backgroundRepeat: 'no-repeat',
-    backgroundColor:
-      theme.palette.type === 'light' ? theme.palette.grey[50] : theme.palette.grey[900],
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-  },
-  paper: {
-    margin: theme.spacing(8, 4),
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-  },
-  avatar: {
-    margin: theme.spacing(1),
-    backgroundColor: theme.palette.secondary.main,
-  },
-  form: {
-    width: '100%', // Fix IE 11 issue.
-    marginTop: theme.spacing(1),
-  },
-  submit: {
-    margin: theme.spacing(3, 0, 2),
-  },
+    paper: {
+        position: "absolute",
+        width: 400,
+        height: 200,
+        backgroundColor: theme.palette.background.paper,
+        border: "2px solid #000",
+        boxShadow: theme.shadows[5],
+        padding: theme.spacing(2, 4, 3),
+    },
 }));
 
-export default function SignInSide() {
-  const classes = useStyles();
+function Home() {
+    const classes = useStyles();
+    const [modalStyle] = useState(getModalStyle);
+    const [posts, setPosts] = useState([]);
+    const [username, setUsername] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [user, setUser] = useState(null);
+    const [open, setOpen] = useState(false);
+    const [registerOpen, setRegisterOpen] = useState(false);
 
-  return (
-    <Grid container component="main" className={classes.root}>
-      <CssBaseline />
-      <Grid item xs={false} sm={4} md={7} className={classes.image} />
-      <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
-        <div className={classes.paper}>
-          <Avatar className={classes.avatar}>
-            <LockOutlinedIcon />
-          </Avatar>
-          <Typography component="h1" variant="h5">
-            <Link to="/Login">
-              Sign in
-            </Link>
-          </Typography>
-          <form className={classes.form} noValidate>
-            <TextField
-              variant="outlined"
-              margin="normal"
-              required
-              fullWidth
-              id="email"
-              label="Email Address"
-              name="email"
-              autoComplete="email"
-              autoFocus
+    useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged((authUser) => {
+            if (authUser) {
+                // user is logged in...
+                console.log(authUser);
+                setUser(authUser);
+
+                if (authUser.displayName) {
+                // dont update username
+                } else {
+                    return authUser.updateProfile({
+                        displayName: username,
+                    });
+                }
+            } else {
+                setUser(null);
+            }
+        });
+
+        return () => {
+            unsubscribe();
+        };
+    }, [user, username]);
+
+    useEffect(() => {
+        db.collection("posts")
+        .orderBy("timestamp", "desc")
+        .onSnapshot((snapshot) =>
+            setPosts(snapshot.docs.map((doc) => ({ id: doc.id, post: doc.data() })))
+        );
+    }, []);
+
+    const handleLogin = (e) => {
+        e.preventDefault();
+        auth
+            .signInWithEmailAndPassword(email, password)
+            .catch((error) => alert(error.message));
+
+        setOpen(false);
+    };
+
+    const handleRegister = (e) => {
+        e.preventDefault();
+        auth
+            .createUserWithEmailAndPassword(email, password)
+            .catch((error) => alert(error.message));
+
+        setRegisterOpen(false);
+    };
+
+    return (
+        <div className="app">
+        <Modal open={open} onClose={() => setOpen(false)}>
+            <div style={modalStyle} className={classes.paper}>
+            <form className="app__login">
+                <center>
+                <img
+                    className="app__headerImage"
+                    src="https://www.google.com/url?sa=i&url=https%3A%2F%2Fmerlinone.com%2Fgreat-typographic-logos%2F&psig=AOvVaw0BYCHkQ56vFbE1yDn2LV1Q&ust=1615425299095000&source=images&cd=vfe&ved=0CAIQjRxqFwoTCMjP3qrGpO8CFQAAAAAdAAAAABAG"
+                    alt=""
+                />
+                </center>
+
+                <Input
+                placeholder="email"
+                type="text"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                />
+                <Input
+                placeholder="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                />
+                <Button onClick={handleLogin}>Login</Button>
+            </form>
+            </div>
+        </Modal>
+
+        <Modal open={registerOpen} onClose={() => setRegisterOpen(false)}>
+            <div style={modalStyle} className={classes.paper}>
+            <form className="app__login">
+                <center>
+                <img
+                    className="app__headerImage"
+                    src="https://www.google.com/url?sa=i&url=https%3A%2F%2Fmerlinone.com%2Fgreat-typographic-logos%2F&psig=AOvVaw0BYCHkQ56vFbE1yDn2LV1Q&ust=1615425299095000&source=images&cd=vfe&ved=0CAIQjRxqFwoTCMjP3qrGpO8CFQAAAAAdAAAAABAG"
+                    alt=""
+                />
+                </center>
+                <Input
+                type="text"
+                placeholder="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                />
+                <Input
+                placeholder="email"
+                type="text"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                />
+                <Input
+                placeholder="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                />
+                <Button onClick={handleRegister}>Register</Button>
+            </form>
+            </div>
+        </Modal>
+        <div className="app__header">
+            <img
+            className="app__headerImage"
+            src="https://www.google.com/url?sa=i&url=https%3A%2F%2Fmerlinone.com%2Fgreat-typographic-logos%2F&psig=AOvVaw0BYCHkQ56vFbE1yDn2LV1Q&ust=1615425299095000&source=images&cd=vfe&ved=0CAIQjRxqFwoTCMjP3qrGpO8CFQAAAAAdAAAAABAG"
+            alt=""
             />
-            <TextField
-              variant="outlined"
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              label="Password"
-              type="password"
-              id="password"
-              autoComplete="current-password"
-            />
-            <FormControlLabel
-              control={<Checkbox value="remember" color="primary" />}
-              label="Remember me"
-            />
-            <Link to ="/Login">
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                color="primary"
-                className={classes.submit}
-              >
-                Sign In
-              </Button>
-            </Link>
-            <Grid container>
-              <Grid item xs justify="flex-start">
-                <Link href="#" variant="body2">
-                  Forgot password?
+            {user?.displayName ? (
+            <div className="app__headerRight">
+                <Button onClick={() => auth.signOut()}>Logout</Button>
+                <Link exact to="/Profile">
+                    <Button>Profile</Button>
                 </Link>
-              </Grid>
-              <Grid item>
-                <Link to ="/Signup" href="#" variant="body2">
-                  {"Don't have an account? Sign Up"}
-                </Link>
-              </Grid>
-            </Grid>
-            <Box mt={5}>
-              <Copyright />
-            </Box>
-          </form>
+                <Avatar
+                className="app__headerAvatar"
+                alt={user.displayName}
+                src="/static/images/avatar/1.jpg"
+                />
+            </div>
+            ) : (
+            <form className="app__loginHome">
+                <Button onClick={() => setOpen(true)}>Login</Button>
+                <Button onClick={() => setRegisterOpen(true)}>Sign Up</Button>
+            </form>
+            )}
         </div>
-      </Grid>
-    </Grid>
-  );
+
+        <div className="app__posts">
+            <div className="app__postsLeft">
+            <FlipMove>
+                {posts.map(({ id, post }) => (
+                <Post
+                    user={user}
+                    key={id}
+                    postId={id}
+                    username={post.username}
+                    caption={post.caption}
+                    imageUrl={post.imageUrl}
+                />
+                ))}
+            </FlipMove>
+            </div>
+            <div className="app__postsRight">
+            <InstagramEmbed
+                url= "https://www.instagram.com/p/B_uf9dmAGPw/"
+                maxWidth={320}
+                hideCaption={false}
+                containerTagName="div"
+                protocol=""
+                injectScript
+                onLoading={() => {}}
+                onSuccess={() => {}}
+                onAfterRender={() => {}}
+                onFailure={() => {}}
+            />
+            </div>
+        </div>
+
+        {user?.displayName ? (
+            <div className="app__upload">
+            <ImageUpload username={user.displayName} />
+            </div>
+        ) : (
+            <center>
+            <h3>Login to upload</h3>
+            </center>
+        )}
+        </div>
+    );
 }
+
+export default Home;
